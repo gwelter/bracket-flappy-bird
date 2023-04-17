@@ -19,13 +19,20 @@ struct Obstacle {
 }
 
 impl Obstacle {
-    fn new(x: i32, score: i32) -> Self {
+    fn new(x: i32) -> Self {
         let mut random = RandomNumberGenerator::new();
         Self {
             x,
             gap_y: random.range(5, 40),
-            size: i32::max(3, 15 - score),
+            size: i32::max(3, 15),
         }
+    }
+    fn check_collision(&self, player: &Player) -> bool {
+        let half_size = self.size / 2;
+        let does_x_match = player.x == self.x;
+        let is_player_above_gap = player.y < self.gap_y - half_size;
+        let is_player_below_gap = player.y > self.gap_y + half_size;
+        does_x_match && (is_player_above_gap || is_player_below_gap)
     }
     fn render(&mut self, ctx: &mut BTerm, player_x: i32) {
         let screen_x = self.x - player_x;
@@ -36,7 +43,7 @@ impl Obstacle {
         for y in self.gap_y + half_size..SCREEN_HEIGHT {
             ctx.set(screen_x, y, WHITE, BLACK, to_cp437('|'));
         }
-        if screen_x < 0 {
+        if screen_x < -20 {
             self.x = SCREEN_WIDTH + player_x;
             self.size = i32::max(3, self.size - 2);
         }
@@ -80,7 +87,6 @@ struct State {
     obstacles: Vec<Obstacle>,
     frame_time: f32,
     mode: GameMode,
-    score: i32,
 }
 
 impl State {
@@ -90,17 +96,15 @@ impl State {
             obstacles: Vec::new(),
             frame_time: 0.0,
             mode: GameMode::Menu,
-            score: 0,
         }
     }
     fn restart(&mut self) {
         self.player = Player::new(5, 25);
         self.frame_time = 0.0;
         self.mode = GameMode::Playing;
-        self.score = 0;
         self.obstacles.clear();
-        for n in 0..4 {
-            self.obstacles.push(Obstacle::new(SCREEN_WIDTH + n * 20, self.score));
+        for n in 0..5 {
+            self.obstacles.push(Obstacle::new(SCREEN_WIDTH + n * 20));
         }
     }
     fn main_menu(&mut self, ctx: &mut BTerm) {
@@ -120,8 +124,6 @@ impl State {
     }
     fn play(&mut self, ctx: &mut BTerm) {
         ctx.cls_bg(NAVY);
-        ctx.print(0, 0, "Score: ");
-        ctx.print(7, 0, &self.score.to_string());
         self.frame_time += ctx.frame_time_ms;
         if self.frame_time > FRAME_DURATION {
             self.frame_time = 0.0;
@@ -131,13 +133,11 @@ impl State {
             self.player.flap()
         }
         self.player.render(ctx);
-        self.score = self.player.x - 5;
         for obstacle in self.obstacles.iter_mut() {
             obstacle.render(ctx, self.player.x);
         }
         ctx.print(0, 0, "Press SPACE to flap");
-        ctx.print(SCREEN_WIDTH - 10, 0, format!("Score: {}", self.score));
-        if self.player.y > SCREEN_HEIGHT {
+        if self.player.y > SCREEN_HEIGHT || self.obstacles.iter().any(|o| o.check_collision(&self.player)) {
             self.mode = GameMode::GameOver;
         }
     }

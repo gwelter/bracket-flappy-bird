@@ -24,7 +24,7 @@ impl Obstacle {
         Self {
             x,
             gap_y: random.range(5, 40),
-            size: i32::max(3, 20 - score),
+            size: i32::max(3, 15 - score),
         }
     }
     fn render(&mut self, ctx: &mut BTerm, player_x: i32) {
@@ -38,6 +38,7 @@ impl Obstacle {
         }
         if screen_x < 0 {
             self.x = SCREEN_WIDTH + player_x;
+            self.size = i32::max(3, self.size - 2);
         }
     }
 }
@@ -130,10 +131,12 @@ impl State {
             self.player.flap()
         }
         self.player.render(ctx);
+        self.score = self.player.x - 5;
         for obstacle in self.obstacles.iter_mut() {
             obstacle.render(ctx, self.player.x);
         }
         ctx.print(0, 0, "Press SPACE to flap");
+        ctx.print(SCREEN_WIDTH - 10, 0, format!("Score: {}", self.score));
         if self.player.y > SCREEN_HEIGHT {
             self.mode = GameMode::GameOver;
         }

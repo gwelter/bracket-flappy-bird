@@ -5,6 +5,8 @@ const SCREEN_HEIGHT: i32 = 50;
 const FRAME_DURATION: f32 = 75.0;
 const MAX_SPEED: f32 = 2.0;
 const GRAVITY_SPEED: f32 = 0.4;
+const PLAYER_X_OFFSET: i32 = 5;
+const PIPES_PER_SCREEN: i32 = 6;
 
 enum GameMode {
     Menu,
@@ -27,18 +29,30 @@ impl Obstacle {
             size: i32::max(3, 15 - score),
         }
     }
+    fn check_collision(&self, player: &Player) -> bool {
+        let half_size = self.size / 2;
+        let does_x_match = player.x == self.x;
+        let is_player_above_gap = player.y < self.gap_y - half_size;
+        let is_player_below_gap = player.y > self.gap_y + half_size;
+        does_x_match && (is_player_above_gap || is_player_below_gap)
+    }
+    fn reset_position_and_mark_score(&mut self, player_x: i32) -> bool {
+        let screen_x = self.x - player_x;
+        if screen_x < 0 {
+            self.x = SCREEN_WIDTH + player_x;
+            self.size = i32::max(3, self.size - 2);
+            return true;
+        }
+        false
+    }
     fn render(&mut self, ctx: &mut BTerm, player_x: i32) {
         let screen_x = self.x - player_x;
         let half_size = self.size / 2;
         for i in 0..self.gap_y - half_size {
-            ctx.set(screen_x, i, WHITE, BLACK, to_cp437('|'));
+            ctx.set(screen_x , i, WHITE, BLACK, to_cp437('|'));
         }
         for y in self.gap_y + half_size..SCREEN_HEIGHT {
             ctx.set(screen_x, y, WHITE, BLACK, to_cp437('|'));
-        }
-        if screen_x < 0 {
-            self.x = SCREEN_WIDTH + player_x;
-            self.size = i32::max(3, self.size - 2);
         }
     }
 }
@@ -58,7 +72,7 @@ impl Player {
         }
     }
     fn render(&self, ctx: &mut BTerm) {
-        ctx.set(5, self.y, YELLOW, BLACK, to_cp437('@'));
+        ctx.set(PLAYER_X_OFFSET, self.y, YELLOW, BLACK, to_cp437('@'));
     }
     fn apply_gravity(&mut self) {
         if self.velocity < MAX_SPEED {
@@ -99,8 +113,9 @@ impl State {
         self.mode = GameMode::Playing;
         self.score = 0;
         self.obstacles.clear();
-        for n in 0..4 {
-            self.obstacles.push(Obstacle::new(SCREEN_WIDTH + n * 20, self.score));
+        for n in 0..PIPES_PER_SCREEN {
+            let space_between_pipes = SCREEN_WIDTH / PIPES_PER_SCREEN;
+            self.obstacles.push(Obstacle::new(SCREEN_WIDTH + n * space_between_pipes, self.score));
         }
     }
     fn main_menu(&mut self, ctx: &mut BTerm) {
@@ -120,8 +135,6 @@ impl State {
     }
     fn play(&mut self, ctx: &mut BTerm) {
         ctx.cls_bg(NAVY);
-        ctx.print(0, 0, "Score: ");
-        ctx.print(7, 0, &self.score.to_string());
         self.frame_time += ctx.frame_time_ms;
         if self.frame_time > FRAME_DURATION {
             self.frame_time = 0.0;
@@ -131,13 +144,15 @@ impl State {
             self.player.flap()
         }
         self.player.render(ctx);
-        self.score = self.player.x - 5;
         for obstacle in self.obstacles.iter_mut() {
             obstacle.render(ctx, self.player.x);
+            if obstacle.reset_position_and_mark_score(self.player.x) {
+                self.score += 1;
+            }
         }
         ctx.print(0, 0, "Press SPACE to flap");
         ctx.print(SCREEN_WIDTH - 10, 0, format!("Score: {}", self.score));
-        if self.player.y > SCREEN_HEIGHT {
+        if self.player.y > SCREEN_HEIGHT || self.obstacles.iter().any(|o| o.check_collision(&self.player)) {
             self.mode = GameMode::GameOver;
         }
     }

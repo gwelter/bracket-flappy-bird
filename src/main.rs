@@ -6,7 +6,7 @@ const FRAME_DURATION: f32 = 75.0;
 const MAX_SPEED: f32 = 2.0;
 const GRAVITY_SPEED: f32 = 0.4;
 const PLAYER_X_OFFSET: i32 = 5;
-const PIPES_PER_SCREEN: i32 = 6;
+const PIPES_PER_SCREEN: i32 = 5;
 
 enum GameMode {
     Menu,
@@ -49,7 +49,7 @@ impl Obstacle {
         let screen_x = self.x - player_x;
         let half_size = self.size / 2;
         for i in 0..self.gap_y - half_size {
-            ctx.set(screen_x , i, WHITE, BLACK, to_cp437('|'));
+            ctx.set(screen_x, i, WHITE, BLACK, to_cp437('|'));
         }
         for y in self.gap_y + half_size..SCREEN_HEIGHT {
             ctx.set(screen_x, y, WHITE, BLACK, to_cp437('|'));
@@ -60,7 +60,7 @@ impl Obstacle {
 struct Player {
     x: i32,
     y: i32,
-    velocity: f32
+    velocity: f32,
 }
 
 impl Player {
@@ -80,7 +80,7 @@ impl Player {
         }
         self.y += self.velocity as i32;
         self.x += 1;
-        if self.y <0 {
+        if self.y < 0 {
             self.y = 0;
         }
     }
@@ -115,7 +115,10 @@ impl State {
         self.obstacles.clear();
         for n in 0..PIPES_PER_SCREEN {
             let space_between_pipes = SCREEN_WIDTH / PIPES_PER_SCREEN;
-            self.obstacles.push(Obstacle::new(SCREEN_WIDTH + n * space_between_pipes, self.score));
+            self.obstacles.push(Obstacle::new(
+                SCREEN_WIDTH + n * space_between_pipes,
+                self.score,
+            ));
         }
     }
     fn main_menu(&mut self, ctx: &mut BTerm) {
@@ -152,7 +155,12 @@ impl State {
         }
         ctx.print(0, 0, "Press SPACE to flap");
         ctx.print(SCREEN_WIDTH - 10, 0, format!("Score: {}", self.score));
-        if self.player.y > SCREEN_HEIGHT || self.obstacles.iter().any(|o| o.check_collision(&self.player)) {
+        if self.player.y > SCREEN_HEIGHT
+            || self
+                .obstacles
+                .iter()
+                .any(|o| o.check_collision(&self.player))
+        {
             self.mode = GameMode::GameOver;
         }
     }
@@ -183,7 +191,8 @@ impl GameState for State {
 }
 
 fn main() -> BError {
-    let context = BTermBuilder::simple(SCREEN_WIDTH, SCREEN_HEIGHT).unwrap()
+    let context = BTermBuilder::simple(SCREEN_WIDTH, SCREEN_HEIGHT)
+        .unwrap()
         .with_title("Flappy Dragon")
         .build()?;
     main_loop(context, State::new())
